@@ -57,8 +57,7 @@ class SoftKMeans(KMeans):
         n_clusters: Optional[int] = 8,
         verbose: bool = True,
         seed: Optional[int] = 123,
-        temp: float = 5.0,
-        **kwargs,
+        temp: float = 5.0
     ):
         super(SoftKMeans, self).__init__(
             init_method=init_method,
@@ -70,8 +69,7 @@ class SoftKMeans(KMeans):
             normalize=normalize,
             n_clusters=n_clusters,
             verbose=verbose,
-            seed=seed,
-            **kwargs,
+            seed=seed
         )
         self.temp = temp
         if self.temp <= 0.0:
@@ -83,7 +81,7 @@ class SoftKMeans(KMeans):
 
     @script
     def _cluster(
-        self, x: Tensor, centers: Tensor, k: LongTensor, **kwargs
+        self, x: Tensor, centers: Tensor, k: LongTensor
     ) -> Tuple[Tensor, Tensor, Tensor, Union[Tensor, Any]]:
         """
         Run soft version of Lloyd's k-means algorithm.
