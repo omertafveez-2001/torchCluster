@@ -7,6 +7,7 @@ from torch import LongTensor, Tensor
 
 from ..utils.distances import BaseDistance, CosineSimilarity
 from .kmeans import KMeans
+from torch.jit import script
 
 __all__ = ["SoftKMeans"]
 
@@ -52,7 +53,7 @@ class SoftKMeans(KMeans):
         distance: BaseDistance = CosineSimilarity,
         p_norm: int = 1,
         normalize: str = "unit",
-        tol: float = 1e-5,
+        tol: float = 1e-3,
         n_clusters: Optional[int] = 8,
         verbose: bool = True,
         seed: Optional[int] = 123,
@@ -80,6 +81,7 @@ class SoftKMeans(KMeans):
                 "soft k-means requires inverted " "distance measure (i.e. similarity)."
             )
 
+    @script
     def _cluster(
         self, x: Tensor, centers: Tensor, k: LongTensor, **kwargs
     ) -> Tuple[Tensor, Tensor, Tensor, Union[Tensor, Any]]:
@@ -176,6 +178,8 @@ class SoftKMeans(KMeans):
             )
         return (c_assign, centers, dist, soft_assignment)
 
+
+    @script
     def _cluster_iter(self, x: Tensor, centers: Tensor) -> Tensor:
         # x: (BS, N, D), centers: (BS, num_init, K, D) -> dist: (BS, num_init, N, K)
         bs, n, d = x.size()
