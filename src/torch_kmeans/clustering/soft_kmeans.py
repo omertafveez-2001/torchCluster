@@ -97,7 +97,7 @@ class SoftKMeans(KMeans):
         k_max = torch.max(k).cpu().item()
         k_max_range = torch.arange(k_max, device=x.device)[None, :].expand(bs, -1)
         k_mask = k_max_range >= k[:, None]
-        k_mask = k_mask[:, None, :].expand(bs, self.num_init, -1)
+        k_mask = k_mask[:, None, :].expand(bs, num_init, -1)
 
         # run soft k-means to convergence
         with torch.no_grad():
@@ -115,7 +115,7 @@ class SoftKMeans(KMeans):
                                 f"Full batch converged at iteration "
                                 f"{i + 1}/{self.max_iter} "
                                 f"with center shifts = "
-                                f"{shift.view(-1, self.num_init).mean(-1)}."
+                                f"{shift.view(-1, num_init).mean(-1)}."
                             )
                         break
 
@@ -125,13 +125,13 @@ class SoftKMeans(KMeans):
                 f"maximum iterations."
                 f"\nThere were some center shifts in last iteration "
                 f"larger than specified threshold {self.tol}: "
-                f"\n{shift.view(-1, self.num_init).mean(-1)}"
+                f"\n{shift.view(-1, num_init).mean(-1)}"
             )
 
-        if self.num_init > 1:
+        if num_init > 1:
             centers[k_mask] = 0
             dist = self._pairwise_distance(x, centers)
-            dist[k_mask[:, :, None, :].expand(bs, self.num_init, n, -1)] = float("-inf")
+            dist[k_mask[:, :, None, :].expand(bs, num_init, n, -1)] = float("-inf")
             best_init = torch.argmax(dist.sum(-1).sum(-1), dim=-1)
             b_idx = torch.arange(bs, device=x.device)
             centers = centers[b_idx, best_init].unsqueeze(1)
