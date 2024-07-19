@@ -48,7 +48,7 @@ class SoftKMeans(KMeans):
         self,
         init_method: str = "k-means++",
         num_init: int = 1,
-        max_iter: int = 20,
+        max_iter: int = 80,
         distance: BaseDistance = CosineSimilarity,
         p_norm: int = 1,
         normalize: str = "unit",
