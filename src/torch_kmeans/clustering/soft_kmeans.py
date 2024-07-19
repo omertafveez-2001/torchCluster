@@ -46,13 +46,13 @@ class SoftKMeans(KMeans):
 
     def __init__(
         self,
-        init_method: str = "k-means++",
+        init_method: str = "rnd",
         num_init: int = 1,
         max_iter: int = 20,
         distance: BaseDistance = CosineSimilarity,
         p_norm: int = 1,
         normalize: str = "unit",
-        tol: float = 1e-3,
+        tol: float = 1e-5,
         n_clusters: Optional[int] = 8,
         verbose: bool = True,
         seed: Optional[int] = 123,
