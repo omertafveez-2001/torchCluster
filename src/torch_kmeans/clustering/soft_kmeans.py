@@ -52,7 +52,7 @@ class SoftKMeans(KMeans):
         distance: BaseDistance = CosineSimilarity,
         p_norm: int = 1,
         normalize: str = "unit",
-        tol: float = 1e-3,
+        tol: float = 1e-5,
         n_clusters: Optional[int] = 8,
         verbose: bool = True,
         seed: Optional[int] = 123,
