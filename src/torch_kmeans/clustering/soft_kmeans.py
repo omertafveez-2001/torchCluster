@@ -48,7 +48,7 @@ class SoftKMeans(KMeans):
         self,
         init_method: str = "rnd",
         num_init: int = 1,
-        max_iter: int = 50,
+        max_iter: int = 20,
         distance: BaseDistance = CosineSimilarity,
         p_norm: int = 1,
         normalize: str = "unit",
@@ -56,7 +56,7 @@ class SoftKMeans(KMeans):
         n_clusters: Optional[int] = 8,
         verbose: bool = True,
         seed: Optional[int] = 123,
-        temp: float = 5.0,
+        temp: float = 3.5,
         **kwargs,
     ):
         super(SoftKMeans, self).__init__(
