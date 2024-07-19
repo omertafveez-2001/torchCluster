@@ -46,7 +46,7 @@ class SoftKMeans(KMeans):
 
     def __init__(
         self,
-        init_method: str = "kmeans++",
+        init_method: str = "k-means++",
         num_init: int = 1,
         max_iter: int = 20,
         distance: BaseDistance = CosineSimilarity,
