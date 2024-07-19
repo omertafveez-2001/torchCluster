@@ -48,7 +48,7 @@ class SoftKMeans(KMeans):
         self,
         init_method: str = "rnd",
         num_init: int = 1,
-        max_iter: int = 80,
+        max_iter: int = 20,
         distance: BaseDistance = CosineSimilarity,
         p_norm: int = 1,
         normalize: str = "unit",
