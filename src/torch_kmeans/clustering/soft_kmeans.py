@@ -78,18 +78,37 @@ class SoftKMeans(KMeans):
             raise ValueError(
                 "soft k-means requires inverted " "distance measure (i.e. similarity)."
             )
+    
+    def prepare_and_cluster(
+            self, x:Tensor, centers: Tensor, k:LongTensor
+    )-> Tuple[Tensor, Tensor, Tensor, Tensor]:
+        """
+        Prepare parameters and call the scripted clustering function.
+        
+        """
+        return self._cluster(
+            x, centers, k, self.num_init, self.max_iters, self.tol, self.verbose, self.temp, self.seed
+        )
 
     @script
     def _cluster(
-        self, x: Tensor, centers: Tensor, k: LongTensor, num_init: int
+        self, x: Tensor, centers: Tensor, k: LongTensor, num_init: int, max_iter: int,
+        tol: float, verbose: bool, temp: float, seed: Optional[int]
     ) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
         """
         Run soft version of Lloyd's k-means algorithm.
 
         Args:
-            x: (BS, N, D)
-            centers: (BS, num_init, k_max, D)
-            k: (BS, )
+            x: input data tensor of shape (BS, N, D).
+            centers: initial cluster centers tensor of shape (BS, num_init, K, D).
+            k: number of clusters to assign to.
+            num_init: number of different initial starting configurations.
+            max_iter: maximum number of iterations.
+            tol: relative tolerance with regards to Frobenius norm of the difference
+                in the cluster centers of two consecutive iterations to declare convergence.
+            verbose: verbosity flag to print additional info.
+            temp: temperature for soft cluster assignments.
+            seed: seed to fix random state for randomized center inits.
 
         """
         bs, n, d = x.size()
@@ -101,30 +120,30 @@ class SoftKMeans(KMeans):
 
         # run soft k-means to convergence
         with torch.no_grad():
-            for i in range(self.max_iter):
+            for i in range(max_iter):
                 centers[k_mask] = 0
                 old_centers = centers.clone()
                 # update
                 centers = self._cluster_iter(x, centers)
                 # calculate center shift
-                if self.tol is not None:
+                if tol is not None:
                     shift = self._calculate_shift(centers, old_centers, p=self.p_norm)
-                    if (shift < self.tol).all():
-                        if self.verbose:
+                    if (shift < tol).all():
+                        if verbose:
                             print(
                                 f"Full batch converged at iteration "
-                                f"{i + 1}/{self.max_iter} "
+                                f"{i + 1}/{max_iter} "
                                 f"with center shifts = "
                                 f"{shift.view(-1, num_init).mean(-1)}."
                             )
                         break
 
-        if self.verbose and i == self.max_iter - 1:
+        if verbose and i == max_iter - 1:
             print(
-                f"Full batch did not converge after {self.max_iter} "
+                f"Full batch did not converge after {max_iter} "
                 f"maximum iterations."
                 f"\nThere were some center shifts in last iteration "
-                f"larger than specified threshold {self.tol}: "
+                f"larger than specified threshold {tol}: "
                 f"\n{shift.view(-1, num_init).mean(-1)}"
             )
 
@@ -146,7 +165,7 @@ class SoftKMeans(KMeans):
             dist = dist.clone()
             # mask probability for non-existing centers
             dist[k_mask[:, :, None, :].expand(bs, 1, n, -1)] = float("-inf")
-            soft_assignment = torch.softmax(self.temp * dist, dim=-1)
+            soft_assignment = torch.softmax(temp * dist, dim=-1)
 
         dist = dist.squeeze(1)
         centers = centers.squeeze(1)
@@ -164,7 +183,7 @@ class SoftKMeans(KMeans):
             same_dist = dist[all_same]
             if self.seed is not None:
                 gen = torch.Generator(device=x.device)
-                gen.manual_seed(self.seed)
+                gen.manual_seed(seed)
             else:
                 gen = None
             c_assign[all_same] = torch.randint(
