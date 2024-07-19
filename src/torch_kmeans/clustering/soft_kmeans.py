@@ -82,7 +82,7 @@ class SoftKMeans(KMeans):
     @script
     def _cluster(
         self, x: Tensor, centers: Tensor, k: LongTensor
-    ) -> Tuple[Tensor, Tensor, Tensor, Union[Tensor, Any]]:
+    ) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
         """
         Run soft version of Lloyd's k-means algorithm.
 
@@ -202,7 +202,7 @@ class SoftKMeans(KMeans):
         centers[msk.any(dim=-2)] = 0
         return centers
 
-    def _assign(self, x: Tensor, centers: Tensor, **kwargs) -> LongTensor:
+    def _assign(self, x: Tensor, centers: Tensor) -> LongTensor:
         dist = self._pairwise_distance(x, centers)
         # mask probability for non-existing centers with -inf
         msk = dist == 0
