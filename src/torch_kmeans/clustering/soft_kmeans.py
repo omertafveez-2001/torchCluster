@@ -48,7 +48,7 @@ class SoftKMeans(KMeans):
         self,
         init_method: str = "rnd",
         num_init: int = 1,
-        max_iter: int = 20,
+        max_iter: int = 100,
         distance: BaseDistance = CosineSimilarity,
         p_norm: int = 1,
         normalize: str = "unit",
@@ -95,16 +95,14 @@ class SoftKMeans(KMeans):
         bs, n, d = x.size()
         # mask centers for which  k < k_max with inf to get correct assignment
         k_max = torch.max(k).cpu().item()
-        k_max_range = torch.arange(k_max, device=x.device)[None, :].expand(bs, -1)
-        k_mask = k_max_range >= k[:, None]
-        k_mask = k_mask[:, None, :].expand(bs, self.num_init, -1)
+        k_max_range = torch.arange(k_max, device=x.device).unsqueeze(0).expand(bs, -1)
+        k_mask = k_max_range >= k.unsqueeze(1)
 
         # run soft k-means to convergence
         with torch.no_grad():
             for i in range(self.max_iter):
-                centers[k_mask] = 0
+                centers[k_mask.unsqueeze(1).expand(-1, self.num_init, -1)] = 0  # In-place operation
                 old_centers = centers.clone()
-                # update
                 centers = self._cluster_iter(x, centers)
                 # calculate center shift
                 if self.tol is not None:
@@ -129,9 +127,9 @@ class SoftKMeans(KMeans):
             )
 
         if self.num_init > 1:
-            centers[k_mask] = 0
+            centers[k_mask.unsqueeze(1).expand(-1, self.num_init, -1)] = 0  # In-place operation
             dist = self._pairwise_distance(x, centers)
-            dist[k_mask[:, :, None, :].expand(bs, self.num_init, n, -1)] = float("-inf")
+            dist[k_mask.unsqueeze(1).unsqueeze(2).expand(-1, self.num_init, n, -1)] = float("-inf")
             best_init = torch.argmax(dist.sum(-1).sum(-1), dim=-1)
             b_idx = torch.arange(bs, device=x.device)
             centers = centers[b_idx, best_init].unsqueeze(1)
