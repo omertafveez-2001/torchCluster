@@ -81,7 +81,7 @@ class SoftKMeans(KMeans):
 
     @script
     def _cluster(
-        self, x: Tensor, centers: Tensor, k: LongTensor
+        self, x: Tensor, centers: Tensor, k: LongTensor, num_init: int
     ) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
         """
         Run soft version of Lloyd's k-means algorithm.
