@@ -7,7 +7,6 @@ from torch import LongTensor, Tensor
 
 from ..utils.distances import BaseDistance, CosineSimilarity
 from .kmeans import KMeans
-from torch.jit import script
 
 __all__ = ["SoftKMeans"]
 
@@ -49,7 +48,7 @@ class SoftKMeans(KMeans):
         self,
         init_method: str = "rnd",
         num_init: int = 1,
-        max_iter: int = 100,
+        max_iter: int = 20,
         distance: BaseDistance = CosineSimilarity,
         p_norm: int = 1,
         normalize: str = "unit",
@@ -57,7 +56,8 @@ class SoftKMeans(KMeans):
         n_clusters: Optional[int] = 8,
         verbose: bool = True,
         seed: Optional[int] = 123,
-        temp: float = 5.0
+        temp: float = 5.0,
+        **kwargs,
     ):
         super(SoftKMeans, self).__init__(
             init_method=init_method,
@@ -69,7 +69,8 @@ class SoftKMeans(KMeans):
             normalize=normalize,
             n_clusters=n_clusters,
             verbose=verbose,
-            seed=seed
+            seed=seed,
+            **kwargs,
         )
         self.temp = temp
         if self.temp <= 0.0:
@@ -78,37 +79,17 @@ class SoftKMeans(KMeans):
             raise ValueError(
                 "soft k-means requires inverted " "distance measure (i.e. similarity)."
             )
-    
-    def prepare_and_cluster(
-            self, x:Tensor, centers: Tensor, k:LongTensor
-    )-> Tuple[Tensor, Tensor, Tensor, Tensor]:
-        """
-        Prepare parameters and call the scripted clustering function.
-        
-        """
-        return self._cluster(
-            x, centers, k, self.num_init, self.max_iters, self.tol, self.verbose, self.temp, self.seed
-        )
 
-    @script
     def _cluster(
-        self, x: Tensor, centers: Tensor, k: LongTensor, num_init: int, max_iter: int,
-        tol: float, verbose: bool, temp: float, seed: Optional[int]
-    ) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
+        self, x: Tensor, centers: Tensor, k: LongTensor, **kwargs
+    ) -> Tuple[Tensor, Tensor, Tensor, Union[Tensor, Any]]:
         """
         Run soft version of Lloyd's k-means algorithm.
 
         Args:
-            x: input data tensor of shape (BS, N, D).
-            centers: initial cluster centers tensor of shape (BS, num_init, K, D).
-            k: number of clusters to assign to.
-            num_init: number of different initial starting configurations.
-            max_iter: maximum number of iterations.
-            tol: relative tolerance with regards to Frobenius norm of the difference
-                in the cluster centers of two consecutive iterations to declare convergence.
-            verbose: verbosity flag to print additional info.
-            temp: temperature for soft cluster assignments.
-            seed: seed to fix random state for randomized center inits.
+            x: (BS, N, D)
+            centers: (BS, num_init, k_max, D)
+            k: (BS, )
 
         """
         bs, n, d = x.size()
@@ -116,41 +97,41 @@ class SoftKMeans(KMeans):
         k_max = torch.max(k).cpu().item()
         k_max_range = torch.arange(k_max, device=x.device)[None, :].expand(bs, -1)
         k_mask = k_max_range >= k[:, None]
-        k_mask = k_mask[:, None, :].expand(bs, num_init, -1)
+        k_mask = k_mask[:, None, :].expand(bs, self.num_init, -1)
 
         # run soft k-means to convergence
         with torch.no_grad():
-            for i in range(max_iter):
+            for i in range(self.max_iter):
                 centers[k_mask] = 0
                 old_centers = centers.clone()
                 # update
                 centers = self._cluster_iter(x, centers)
                 # calculate center shift
-                if tol is not None:
+                if self.tol is not None:
                     shift = self._calculate_shift(centers, old_centers, p=self.p_norm)
-                    if (shift < tol).all():
-                        if verbose:
+                    if (shift < self.tol).all():
+                        if self.verbose:
                             print(
                                 f"Full batch converged at iteration "
-                                f"{i + 1}/{max_iter} "
+                                f"{i + 1}/{self.max_iter} "
                                 f"with center shifts = "
-                                f"{shift.view(-1, num_init).mean(-1)}."
+                                f"{shift.view(-1, self.num_init).mean(-1)}."
                             )
                         break
 
-        if verbose and i == max_iter - 1:
+        if self.verbose and i == self.max_iter - 1:
             print(
-                f"Full batch did not converge after {max_iter} "
+                f"Full batch did not converge after {self.max_iter} "
                 f"maximum iterations."
                 f"\nThere were some center shifts in last iteration "
-                f"larger than specified threshold {tol}: "
-                f"\n{shift.view(-1, num_init).mean(-1)}"
+                f"larger than specified threshold {self.tol}: "
+                f"\n{shift.view(-1, self.num_init).mean(-1)}"
             )
 
-        if num_init > 1:
+        if self.num_init > 1:
             centers[k_mask] = 0
             dist = self._pairwise_distance(x, centers)
-            dist[k_mask[:, :, None, :].expand(bs, num_init, n, -1)] = float("-inf")
+            dist[k_mask[:, :, None, :].expand(bs, self.num_init, n, -1)] = float("-inf")
             best_init = torch.argmax(dist.sum(-1).sum(-1), dim=-1)
             b_idx = torch.arange(bs, device=x.device)
             centers = centers[b_idx, best_init].unsqueeze(1)
@@ -165,7 +146,7 @@ class SoftKMeans(KMeans):
             dist = dist.clone()
             # mask probability for non-existing centers
             dist[k_mask[:, :, None, :].expand(bs, 1, n, -1)] = float("-inf")
-            soft_assignment = torch.softmax(temp * dist, dim=-1)
+            soft_assignment = torch.softmax(self.temp * dist, dim=-1)
 
         dist = dist.squeeze(1)
         centers = centers.squeeze(1)
@@ -183,7 +164,7 @@ class SoftKMeans(KMeans):
             same_dist = dist[all_same]
             if self.seed is not None:
                 gen = torch.Generator(device=x.device)
-                gen.manual_seed(seed)
+                gen.manual_seed(self.seed)
             else:
                 gen = None
             c_assign[all_same] = torch.randint(
@@ -195,8 +176,6 @@ class SoftKMeans(KMeans):
             )
         return (c_assign, centers, dist, soft_assignment)
 
-
-    @script
     def _cluster_iter(self, x: Tensor, centers: Tensor) -> Tensor:
         # x: (BS, N, D), centers: (BS, num_init, K, D) -> dist: (BS, num_init, N, K)
         bs, n, d = x.size()
@@ -221,7 +200,7 @@ class SoftKMeans(KMeans):
         centers[msk.any(dim=-2)] = 0
         return centers
 
-    def _assign(self, x: Tensor, centers: Tensor) -> LongTensor:
+    def _assign(self, x: Tensor, centers: Tensor, **kwargs) -> LongTensor:
         dist = self._pairwise_distance(x, centers)
         # mask probability for non-existing centers with -inf
         msk = dist == 0
