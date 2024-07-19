@@ -27,7 +27,7 @@ class SoftKMeans(KMeans):
                     i.e. different sets of initial centers.
                     If >1 selects the best configuration before
                     propagating through fixpoint (default: 1).
-        max_iter: Maximum number of iterations (default: 100).
+        max_iter: Maximum number of iterations (default: 20).
         distance: batched distance evaluator (default: CosineSimilarity).
         p_norm: norm for lp distance (default: 1).
         normalize: id of method to use to normalize input. (default: 'unit').
@@ -52,7 +52,7 @@ class SoftKMeans(KMeans):
         distance: BaseDistance = CosineSimilarity,
         p_norm: int = 1,
         normalize: str = "unit",
-        tol: float = 1e-3,
+        tol: float = 1e-4,
         n_clusters: Optional[int] = 8,
         verbose: bool = True,
         seed: Optional[int] = 123,
