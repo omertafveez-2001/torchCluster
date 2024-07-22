@@ -48,7 +48,7 @@ class SoftKMeans(KMeans):
         self,
         init_method: str = "rnd",
         num_init: int = 1,
-        max_iter: int = 30,
+        max_iter: int = 100,
         distance: BaseDistance = CosineSimilarity,
         p_norm: int = 1,
         normalize: str = "unit",
@@ -94,7 +94,7 @@ class SoftKMeans(KMeans):
         """
         return self._assign(x, centers, **kwargs)
 
-    # assigning all the variables in a tuple so script from JIT can run properly.
+    # assigning all the variables in local context so script from JIT can run properly since script can't read self variables.
     # This is a workaround for the issue:
     def clustering(self, x: Tensor, k: LongTensor, **kwargs) -> Tuple[Tensor, Tensor, Tensor, Union[Tensor, Any]]:
         """
