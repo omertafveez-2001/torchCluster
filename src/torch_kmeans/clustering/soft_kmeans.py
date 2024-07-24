@@ -80,40 +80,7 @@ class SoftKMeans(KMeans):
                 "soft k-means requires inverted " "distance measure (i.e. similarity)."
             )
     
-    def assignment_cluster(self, x: Tensor, centers: Tensor, **kwargs) -> LongTensor:
-        """
-        Assign data points to cluster centers.
-
-        Args:
-            x: (BS, N, D) input data
-            centers: (BS, K, D) cluster centers
-
-        Returns:
-            c_assign: (BS, N) cluster assignment for each data point
-
-        """
-        return self._assign(x, centers, **kwargs)
-
-    # assigning all the variables in local context so script from JIT can run properly since script can't read self variables.
-    # This is a workaround for the issue:
-    def clustering(self, x: Tensor, k: LongTensor, **kwargs) -> Tuple[Tensor, Tensor, Tensor, Union[Tensor, Any]]:
-        """
-        Cluster input data into k clusters.
-
-        Args:
-            x: (BS, N, D) input data
-            k: (BS,) number of clusters
-
-        Returns:
-            c_assign: (BS, N) cluster assignment for each data point
-            centers: (BS, K, D) cluster centers
-            dist: (BS, N, K) distance to each cluster center
-            soft_assignment: (BS, N, K) soft cluster assignments
-
-        """
-        centers = self._initialize(x, k, **kwargs)
-        return self._cluster(x, centers, k, **kwargs)
-
+    
     def _cluster(
         self, x: Tensor, centers: Tensor, k: LongTensor, **kwargs
     ) -> Tuple[Tensor, Tensor, Tensor, Union[Tensor, Any]]:
